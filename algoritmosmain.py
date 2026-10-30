@@ -301,3 +301,189 @@ style = ttk.Style()
 style.theme_use("clam")
 style.configure("TFrame", background="#ffffff")
 style.configure("TLabel", background="#ffffff", foreground="#000000")
+# ==========================================================
+#                   SELECCIÓN DE PERFIL / INICIO
+# ==========================================================
+def mostrar_inicio():
+    limpiar_ventana()
+    
+    marco_padre = tk.Frame(canvas, bg="")
+    canvas.create_window(525, 350, window=marco_padre, anchor="center")
+
+    marco = ttk.Frame(marco_padre, padding=40)
+    marco.pack()
+
+    ttk.Label(marco, text="⚽ SPORTZONE 🏀", font=("Arial", 28, "bold")).pack(pady=10)
+    ttk.Label(marco, text="¡Bienvenido a la Tienda Deportiva!", font=("Arial", 14)).pack(pady=5)
+    ttk.Label(marco, text="Seleccione su modo de acceso:", font=("Arial", 11)).pack(pady=15)
+
+    ttk.Button(marco, text="🛍️ INGRESAR COMO CLIENTE", command=mostrar_tienda_cliente, width=32).pack(pady=10)
+    ttk.Button(marco, text="🔑 ACCESO ADMINISTRADOR", command=mostrar_login_admin, width=32).pack(pady=10)
+
+# ==========================================================
+#            MODO CLIENTE - CATÁLOGO TARJETAS E-COMMERCE
+# ==========================================================
+def mostrar_tienda_cliente():
+    limpiar_ventana()
+
+    top_frame = ttk.Frame(canvas, padding=10)
+    canvas.create_window(0, 0, window=top_frame, anchor="nw", width=ventana.winfo_width())
+
+    ttk.Label(top_frame, text="🛒 CATÁLOGO DE PRODUCTOS", font=("Arial", 18, "bold")).pack(side="left", padx=10)
+    ttk.Button(top_frame, text="🚪 Cambiar Perfil", command=mostrar_inicio).pack(side="right", padx=5)
+    
+    cant_carrito = sum(item['cantidad'] for item in carrito_cliente)
+    btn_carrito = ttk.Button(top_frame, text=f"🛍️ Ver Carrito ({cant_carrito})", command=vista_carrito)
+    btn_carrito.pack(side="right", padx=5)
+
+    global contenedor_dinamico
+    contenedor_dinamico = ttk.Frame(canvas, padding=10)
+    canvas.create_window(525, 370, window=contenedor_dinamico, anchor="center")
+
+    vista_catalogo_tarjetas()
+
+def vista_catalogo_tarjetas(filtro_deporte=None):
+    for widget in contenedor_dinamico.winfo_children():
+        widget.destroy()
+
+    # Filtros
+    frame_filtros = ttk.Frame(contenedor_dinamico)
+    frame_filtros.pack(fill="x", pady=5)
+
+    ttk.Button(frame_filtros, text="Todos", command=lambda: vista_catalogo_tarjetas(None)).pack(side="left", padx=5)
+    ttk.Button(frame_filtros, text="⚽ Fútbol", command=lambda: vista_catalogo_tarjetas("Fútbol")).pack(side="left", padx=5)
+    ttk.Button(frame_filtros, text="🏀 Básquetbol", command=lambda: vista_catalogo_tarjetas("Básquetbol")).pack(side="left", padx=5)
+
+    lista_mostrar = productos if not filtro_deporte else [p for p in productos if p["deporte"] == filtro_deporte]
+
+    # Canvas interno con Scrollbar
+    canvas_scroll = tk.Canvas(contenedor_dinamico, width=820, height=460, bg="#f5f5f5", highlightthickness=0)
+    scrollbar = ttk.Scrollbar(contenedor_dinamico, orient="vertical", command=canvas_scroll.yview)
+    grid_frame = tk.Frame(canvas_scroll, bg="#f5f5f5")
+
+    grid_frame.bind("<Configure>", lambda e: canvas_scroll.configure(scrollregion=canvas_scroll.bbox("all")))
+    canvas_scroll.create_window((0, 0), window=grid_frame, anchor="nw")
+    canvas_scroll.configure(yscrollcommand=scrollbar.set)
+
+    canvas_scroll.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    # Renderizar Tarjetas
+    columnas_max = 3
+    for index, prod in enumerate(lista_mostrar):
+        row = index // columnas_max
+        col = index % columnas_max
+
+        card = tk.Frame(grid_frame, bg="#ffffff", bd=1, relief="solid", padx=10, pady=8)
+        card.grid(row=row, column=col, padx=10, pady=10)
+
+        # Tag Oferta
+        lbl_tag = tk.Label(card, text="OFERTA", bg="#e63946", fg="white", font=("Arial", 8, "bold"))
+        lbl_tag.pack(anchor="ne")
+
+        # Contenedor de imagen con tamaño fijo para evitar que se aplaste
+        frame_img = tk.Frame(card, width=170, height=110, bg="#eeeeee")
+        frame_img.pack_propagate(False)
+        frame_img.pack(pady=4)
+
+        lbl_img = tk.Label(frame_img, text="Cargando...", font=("Arial", 9), bg="#eeeeee", fg="#555555")
+        lbl_img.pack(fill="both", expand=True)
+        
+        cargar_imagen_async(prod.get("imagen_url", ""), lbl_img)
+
+        # Nombre
+        lbl_nom = tk.Label(card, text=prod["nombre"], font=("Arial", 10, "bold"), bg="#ffffff", wraplength=170)
+        lbl_nom.pack()
+
+        # Categoría
+        lbl_cat = tk.Label(card, text=f"{prod['deporte']} • {prod['categoria']}", font=("Arial", 8), fg="#666666", bg="#ffffff")
+        lbl_cat.pack()
+
+        # Precio
+        lbl_precio = tk.Label(card, text=f"Q{prod['precio']:.2f}", font=("Arial", 11, "bold"), fg="#1d3557", bg="#ffffff")
+        lbl_precio.pack(pady=2)
+
+        # Stock
+        lbl_stock = tk.Label(card, text=f"Stock: {prod['stock']} un.", font=("Arial", 8), fg="#2a9d8f", bg="#ffffff")
+        lbl_stock.pack()
+
+        # Botón
+        def crear_cmd(p=prod):
+            return lambda: agregar_carrito_directo(p)
+
+        btn_add = tk.Button(card, text="🛒 Añadir al carrito", bg="#2a9d8f", fg="white", font=("Arial", 9, "bold"), relief="flat", command=crear_cmd())
+        btn_add.pack(pady=6, fill="x")
+
+def agregar_carrito_directo(prod):
+    cant_en_carrito = sum(c["cantidad"] for c in carrito_cliente if c["producto"]["codigo"] == prod["codigo"])
+    if cant_en_carrito + 1 > prod["stock"]:
+        messagebox.showerror("Sin Stock", f"No hay más unidades disponibles de {prod['nombre']}.")
+        return
+
+    for c in carrito_cliente:
+        if c["producto"]["codigo"] == prod["codigo"]:
+            c["cantidad"] += 1
+            c["subtotal"] = c["cantidad"] * prod["precio"]
+            break
+    else:
+        carrito_cliente.append({"producto": prod, "cantidad": 1, "subtotal": prod["precio"]})
+
+    messagebox.showinfo("Carrito Actualizado", f"¡{prod['nombre']} añadido al carrito!")
+    mostrar_tienda_cliente()
+
+def vista_carrito():
+    for widget in contenedor_dinamico.winfo_children():
+        widget.destroy()
+
+    ttk.Label(contenedor_dinamico, text="🛍️ TU CARRITO DE COMPRAS", font=("Arial", 16, "bold")).pack(pady=10)
+
+    if not carrito_cliente:
+        ttk.Label(contenedor_dinamico, text="El carrito está vacío.").pack(pady=30)
+        ttk.Button(contenedor_dinamico, text="⬅️ Volver al Catálogo", command=mostrar_tienda_cliente).pack()
+        return
+
+    columnas = ("codigo", "nombre", "precio", "cantidad", "subtotal")
+    tabla = ttk.Treeview(contenedor_dinamico, columns=columnas, show="headings", height=6)
+
+    headers = {"codigo": "Código", "nombre": "Producto", "precio": "Precio Unit.", "cantidad": "Cantidad", "subtotal": "Subtotal"}
+    for col in columnas:
+        tabla.heading(col, text=headers[col])
+
+    for item in carrito_cliente:
+        p = item["producto"]
+        tabla.insert("", "end", values=(p["codigo"], p["nombre"], f"Q{p['precio']:.2f}", item["cantidad"], f"Q{item['subtotal']:.2f}"))
+
+    tabla.pack(fill="both", expand=True, pady=10)
+
+    total_compra = sum(item["subtotal"] for item in carrito_cliente)
+    ttk.Label(contenedor_dinamico, text=f"TOTAL A PAGAR: Q{total_compra:.2f}", font=("Arial", 14, "bold")).pack(pady=5)
+
+    frame_acciones = ttk.Frame(contenedor_dinamico)
+    frame_acciones.pack(pady=10)
+
+    def quitar_item():
+        selected = tabla.selection()
+        if not selected:
+            messagebox.showwarning("Atención", "Seleccione un ítem del carrito para quitar.")
+            return
+        cod = tabla.item(selected[0])["values"][0]
+        global carrito_cliente
+        carrito_cliente = [item for item in carrito_cliente if item["producto"]["codigo"] != cod]
+        mostrar_tienda_cliente()
+        vista_carrito()
+
+    def finalizar_compra():
+        if messagebox.askyesno("Confirmar Compra", f"¿Desea confirmar su compra por un total de Q{total_compra:.2f}?"):
+            for item in carrito_cliente:
+                prod = item["producto"]
+                cant = item["cantidad"]
+                prod["stock"] -= cant
+                ventas.append({"codigo": prod["codigo"], "nombre": prod["nombre"], "cantidad": cant, "total": item["subtotal"]})
+
+            carrito_cliente.clear()
+            messagebox.showinfo("¡Gracias por su compra!", "Su pedido se ha procesado exitosamente y se ha registrado en el historial de ventas.")
+            mostrar_tienda_cliente()
+
+    ttk.Button(frame_acciones, text="❌ Quitar Ítem", command=quitar_item).pack(side="left", padx=5)
+    ttk.Button(frame_acciones, text="⬅️ Seguir Comprando", command=mostrar_tienda_cliente).pack(side="left", padx=5)
+    ttk.Button(frame_acciones, text="✅ FINALIZAR COMPRA", command=finalizar_compra).pack(side="left", padx=5)
