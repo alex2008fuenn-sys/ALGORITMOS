@@ -487,3 +487,284 @@ def vista_carrito():
     ttk.Button(frame_acciones, text="❌ Quitar Ítem", command=quitar_item).pack(side="left", padx=5)
     ttk.Button(frame_acciones, text="⬅️ Seguir Comprando", command=mostrar_tienda_cliente).pack(side="left", padx=5)
     ttk.Button(frame_acciones, text="✅ FINALIZAR COMPRA", command=finalizar_compra).pack(side="left", padx=5)
+# ==========================================================
+#                     LOGIN ADMIN
+# ==========================================================
+def mostrar_login_admin():
+    limpiar_ventana()
+    
+    marco_padre = tk.Frame(canvas, bg="")
+    canvas.create_window(525, 350, window=marco_padre, anchor="center")
+
+    marco = ttk.Frame(marco_padre, padding=40)
+    marco.pack()
+
+    ttk.Label(marco, text="🔑 PANEL DE ADMINISTRACIÓN", font=("Arial", 20, "bold")).pack(pady=10)
+
+    ttk.Label(marco, text="Usuario:").pack(anchor="w", pady=(15, 5))
+    e_usuario = ttk.Entry(marco, width=35)
+    e_usuario.pack()
+    e_usuario.insert(0, "admin")  # Valor por defecto para agilizar pruebas
+
+    ttk.Label(marco, text="Contraseña:").pack(anchor="w", pady=(10, 5))
+    e_pass = ttk.Entry(marco, width=35, show="*")
+    e_pass.pack()
+    e_pass.insert(0, "1234")  # Valor por defecto para agilizar pruebas
+
+    def ingresar():
+        usuario_ingresado = e_usuario.get().strip()
+        pass_ingresada = e_pass.get().strip()
+        
+        if usuario_ingresado == USUARIO_ADMIN and pass_ingresada == PASS_ADMIN:
+            messagebox.showinfo("Bienvenido", "¡Acceso concedido!")
+            mostrar_menu_admin()
+        else:
+            messagebox.showerror("Error", "Usuario o contraseña incorrectos.")
+
+    ttk.Button(marco, text="INGRESAR", command=ingresar).pack(pady=20)
+    ttk.Button(marco, text="⬅️ Volver", command=mostrar_inicio).pack()
+
+# ==========================================================
+#                   PANEL ADMINISTRADOR
+# ==========================================================
+def mostrar_menu_admin():
+    limpiar_ventana()
+
+    top_frame = ttk.Frame(canvas, padding=10)
+    canvas.create_window(0, 0, window=top_frame, anchor="nw", width=ventana.winfo_width())
+
+    ttk.Label(top_frame, text="⚙️ PANEL DE ADMINISTRADOR", font=("Arial", 18, "bold")).pack(side="left", padx=10)
+    ttk.Button(top_frame, text="🚪 Cerrar Sesión", command=mostrar_inicio).pack(side="right", padx=5)
+    ttk.Button(top_frame, text="🏠 Menú Admin", command=mostrar_home_admin).pack(side="right", padx=5)
+
+    global contenedor_dinamico
+    contenedor_dinamico = ttk.Frame(canvas, padding=15)
+    canvas.create_window(525, 370, window=contenedor_dinamico, anchor="center")
+
+    mostrar_home_admin()
+
+def mostrar_home_admin():
+    for widget in contenedor_dinamico.winfo_children():
+        widget.destroy()
+
+    ttk.Label(contenedor_dinamico, text="Gestión de Inventario y Finanzas", font=("Arial", 15, "bold")).pack(pady=10)
+
+    marco_botones = ttk.Frame(contenedor_dinamico)
+    marco_botones.pack(expand=True)
+
+    botones = [
+        ("📦 Inventario General", lambda: mostrar_tabla_productos_admin(productos, "INVENTARIO GENERAL")),
+        ("🛒 Reabastecer Stock", vista_reabastecer),
+        ("➕ Agregar Producto Nuevo", vista_agregar),
+        ("🔎 Buscar Producto", vista_buscar),
+        ("🗑️ Eliminar Producto", vista_eliminar),
+        ("📋 Historial de Ventas", vista_historial_ventas),
+        ("📊 Estadísticas de Ventas", mostrar_estadisticas),
+        ("🔃 Ordenar Inventario", vista_ordenar)
+    ]
+
+    for i, (texto, func) in enumerate(botones):
+        btn = ttk.Button(marco_botones, text=texto, command=func, width=28)
+        btn.grid(row=i//2, column=i%2, padx=10, pady=8)
+
+def mostrar_tabla_productos_admin(lista, titulo):
+    for widget in contenedor_dinamico.winfo_children(): widget.destroy()
+    ttk.Label(contenedor_dinamico, text=titulo, font=("Arial", 16, "bold")).pack(pady=10)
+
+    columnas = ("codigo", "nombre", "deporte", "categoria", "precio", "stock")
+    tabla = ttk.Treeview(contenedor_dinamico, columns=columnas, show="headings", height=8)
+    
+    headers = {"codigo": "Código", "nombre": "Producto", "deporte": "Deporte", "categoria": "Categoría", "precio": "Precio", "stock": "Stock"}
+    for col in columnas:
+        tabla.heading(col, text=headers[col])
+        tabla.column(col, width=110)
+
+    for p in lista:
+        tabla.insert("", "end", values=(p["codigo"], p["nombre"], p["deporte"], p["categoria"], f"Q{p['precio']:.2f}", p["stock"]))
+
+    tabla.pack(fill="both", expand=True, pady=10)
+
+def vista_reabastecer():
+    for widget in contenedor_dinamico.winfo_children(): widget.destroy()
+    ttk.Label(contenedor_dinamico, text="🛒 REABASTECER STOCK", font=("Arial", 16, "bold")).pack(pady=15)
+
+    marco = ttk.Frame(contenedor_dinamico)
+    marco.pack(pady=10)
+
+    ttk.Label(marco, text="Código del Producto:").grid(row=0, column=0, pady=5, sticky="w")
+    e_cod = ttk.Entry(marco, width=20)
+    e_cod.grid(row=0, column=1, pady=5)
+
+    ttk.Label(marco, text="Cantidad a Agregar:").grid(row=1, column=0, pady=5, sticky="w")
+    e_cant = ttk.Entry(marco, width=20)
+    e_cant.grid(row=1, column=1, pady=5)
+
+    def confirmar():
+        try:
+            cod, cant = e_cod.get().strip().upper(), int(e_cant.get())
+            if cant <= 0: raise ValueError()
+            for p in productos:
+                if p["codigo"] == cod:
+                    p["stock"] += cant
+                    messagebox.showinfo("Éxito", f"Nuevo stock de {p['nombre']}: {p['stock']}")
+                    mostrar_home_admin()
+                    return
+            messagebox.showerror("Error", "Producto no encontrado.")
+        except ValueError:
+            messagebox.showerror("Error", "Ingrese una cantidad entera válida.")
+
+    ttk.Button(contenedor_dinamico, text="SUMAR AL STOCK", command=confirmar).pack(pady=15)
+
+def vista_agregar():
+    for widget in contenedor_dinamico.winfo_children(): widget.destroy()
+    ttk.Label(contenedor_dinamico, text="➕ AGREGAR NUEVO PRODUCTO", font=("Arial", 16, "bold")).pack(pady=10)
+
+    marco = ttk.Frame(contenedor_dinamico)
+    marco.pack(pady=10)
+
+    campos = ["Código", "Nombre", "Deporte", "Categoría", "Precio", "Stock", "URL Imagen"]
+    entradas = {}
+
+    for i, campo in enumerate(campos):
+        ttk.Label(marco, text=campo).grid(row=i, column=0, sticky="w", pady=4, padx=10)
+        e = ttk.Entry(marco, width=30)
+        e.grid(row=i, column=1, pady=4, padx=10)
+        entradas[campo] = e
+
+    def guardar():
+        try:
+            cod, nom, dep, cat = entradas["Código"].get().strip().upper(), entradas["Nombre"].get().strip(), entradas["Deporte"].get().strip(), entradas["Categoría"].get().strip()
+            pre, stk = float(entradas["Precio"].get()), int(entradas["Stock"].get())
+            url_img = entradas["URL Imagen"].get().strip() or "https://images.unsplash.com/photo-1511886929837-354d827aae26?w=300"
+
+            if not all([cod, nom, dep, cat]) or pre <= 0 or stk < 0: raise ValueError()
+            if any(p["codigo"] == cod for p in productos):
+                messagebox.showerror("Error", "El código ya existe.")
+                return
+
+            productos.append({"codigo": cod, "nombre": nom, "deporte": dep, "categoria": cat, "precio": pre, "stock": stk, "imagen_url": url_img})
+            messagebox.showinfo("Éxito", "Producto registrado correctamente.")
+            mostrar_home_admin()
+        except ValueError:
+            messagebox.showerror("Error", "Revise los campos introducidos.")
+
+    ttk.Button(contenedor_dinamico, text="GUARDAR", command=guardar).pack(pady=10)
+
+def vista_buscar():
+    for widget in contenedor_dinamico.winfo_children(): widget.destroy()
+    ttk.Label(contenedor_dinamico, text="🔎 BUSCAR PRODUCTO", font=("Arial", 16, "bold")).pack(pady=10)
+
+    marco = ttk.Frame(contenedor_dinamico)
+    marco.pack(pady=10)
+
+    ttk.Label(marco, text="Código o Nombre:").pack(side="left", padx=5)
+    e_buscar = ttk.Entry(marco, width=25)
+    e_buscar.pack(side="left", padx=5)
+
+    res_frame = ttk.Frame(contenedor_dinamico)
+    res_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+    def ejecutar_busqueda():
+        for w in res_frame.winfo_children(): w.destroy()
+        texto = e_buscar.get().strip().lower()
+        encontrados = [p for p in productos if texto in p["codigo"].lower() or texto in p["nombre"].lower()]
+        if not encontrados:
+            ttk.Label(res_frame, text="No se encontraron coincidencias.").pack()
+            return
+        mostrar_tabla_productos_admin(encontrados, "Resultados")
+
+    ttk.Button(marco, text="BUSCAR", command=ejecutar_busqueda).pack(side="left", padx=5)
+
+def vista_eliminar():
+    for widget in contenedor_dinamico.winfo_children(): widget.destroy()
+    ttk.Label(contenedor_dinamico, text="🗑️ ELIMINAR PRODUCTO", font=("Arial", 16, "bold")).pack(pady=15)
+
+    marco = ttk.Frame(contenedor_dinamico)
+    marco.pack(pady=10)
+
+    ttk.Label(marco, text="Ingrese Código:").pack(side="left", padx=5)
+    e_cod = ttk.Entry(marco, width=20)
+    e_cod.pack(side="left", padx=5)
+
+    def eliminar():
+        cod = e_cod.get().strip().upper()
+        for p in productos:
+            if p["codigo"] == cod:
+                if messagebox.askyesno("Confirmar", f"¿Eliminar {p['nombre']}?"):
+                    productos.remove(p)
+                    messagebox.showinfo("Éxito", "Producto eliminado.")
+                    mostrar_home_admin()
+                return
+        messagebox.showerror("Error", "Producto no encontrado.")
+
+    ttk.Button(marco, text="ELIMINAR", command=eliminar).pack(side="left", padx=5)
+
+def vista_historial_ventas():
+    for widget in contenedor_dinamico.winfo_children(): widget.destroy()
+    ttk.Label(contenedor_dinamico, text="📋 HISTORIAL DE VENTAS", font=("Arial", 16, "bold")).pack(pady=10)
+
+    if not ventas:
+        ttk.Label(contenedor_dinamico, text="No hay ventas registradas.").pack(pady=30)
+        return
+
+    columnas = ("codigo", "producto", "cantidad", "total")
+    tabla = ttk.Treeview(contenedor_dinamico, columns=columnas, show="headings", height=8)
+    headers = {"codigo": "Código", "producto": "Producto", "cantidad": "Cantidad", "total": "Total"}
+    
+    for col in columnas:
+        tabla.heading(col, text=headers[col])
+
+    for v in ventas:
+        tabla.insert("", "end", values=(v["codigo"], v["nombre"], v["cantidad"], f"Q{v['total']:.2f}"))
+
+    tabla.pack(fill="both", expand=True, pady=10)
+
+def mostrar_estadisticas():
+    for widget in contenedor_dinamico.winfo_children(): widget.destroy()
+    ingresos = sum(v["total"] for v in ventas)
+    unidades = sum(v["cantidad"] for v in ventas)
+    
+    cantidades = {}
+    for v in ventas:
+        cantidades[v["nombre"]] = cantidades.get(v["nombre"], 0) + v["cantidad"]
+    
+    mayor_prod = max(cantidades, key=cantidades.get) if cantidades else "Ninguno"
+    menor_stock = min(productos, key=lambda x: x["stock"]) if productos else None
+
+    texto = (
+        f"📊 ESTADÍSTICAS GENERALES DE SPORTZONE\n\n"
+        f"• Productos en catálogo: {len(productos)}\n"
+        f"• Compras de clientes realizadas: {len(ventas)}\n"
+        f"• Unidades totales vendidas: {unidades}\n"
+        f"• Ingresos totales generados: Q{ingresos:.2f}\n\n"
+        f"⭐ Producto más vendido: {mayor_prod}\n"
+    )
+    if menor_stock:
+        texto += f"⚠️ Alerta Stock Bajo: {menor_stock['nombre']} ({menor_stock['stock']} un.)"
+
+    ttk.Label(contenedor_dinamico, text=texto, font=("Arial", 13), justify="left").pack(pady=20)
+
+def vista_ordenar():
+    for widget in contenedor_dinamico.winfo_children(): widget.destroy()
+    ttk.Label(contenedor_dinamico, text="🔃 ORDENAR INVENTARIO", font=("Arial", 16, "bold")).pack(pady=15)
+
+    def burbuja(criterio, clave):
+        n = len(productos)
+        for i in range(n - 1):
+            for j in range(n - 1 - i):
+                v1, v2 = productos[j][criterio], productos[j+1][criterio]
+                if isinstance(v1, str): v1, v2 = v1.lower(), v2.lower()
+                if v1 > v2:
+                    productos[j], productos[j+1] = productos[j+1], productos[j]
+        messagebox.showinfo("Éxito", f"Inventario ordenado por {clave}.")
+        mostrar_tabla_productos_admin(productos, f"INVENTARIO ORDENADO POR {clave.upper()}")
+
+    ttk.Button(contenedor_dinamico, text="Ordenar por Precio", command=lambda: burbuja("precio", "precio"), width=25).pack(pady=6)
+    ttk.Button(contenedor_dinamico, text="Ordenar por Stock", command=lambda: burbuja("stock", "stock"), width=25).pack(pady=6)
+    ttk.Button(contenedor_dinamico, text="Ordenar por Nombre", command=lambda: burbuja("nombre", "nombre"), width=25).pack(pady=6)
+
+# ==========================================================
+#                   INICIAR APLICACIÓN
+# ==========================================================
+mostrar_inicio()
+ventana.mainloop()
